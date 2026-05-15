@@ -6,10 +6,12 @@ use PHPMailer\PHPMailer\Exception;
 class Tools
 {
     private $connection;
+    private $app;
 
-    public function __construct($connection)
+    public function __construct($connection, $app = null)
     {
         $this->connection = $connection;
+        $this->app = $app;
     }
 
 
@@ -17,7 +19,6 @@ class Tools
     public function sanitizeInput($input)
     {
         $input = trim((string) $input);
-        $input = stripslashes($input);
 
         return $input;
     }
@@ -29,11 +30,11 @@ class Tools
 
     public function escapeForSql($input)
     {
-        if (!$this->connection instanceof mysqli) {
+        if (!$this->connection instanceof PDO) {
             throw new RuntimeException('Database connection is not available.');
         }
 
-        return $this->connection->real_escape_string($this->sanitizeInput($input));
+        return $this->sanitizeInput($input);
     }
 
     // --------------  GENERATE RANDOM USER ID ----------------//
@@ -59,10 +60,12 @@ class Tools
     // --------------  ALERT ----------------//
     public function alert()
     {
-        if (isset($_SESSION["alert"])) {
+        if (isset($_SESSION["alert"]) || isset($_SESSION["flash"])) {
+            $app = $this->app;
             include __DIR__ . '/../components/alert-modal.php';
 
             unset($_SESSION["alert"]);
+            unset($_SESSION["flash"]);
         }
     }
 
@@ -76,7 +79,7 @@ class Tools
         $mailUsername = Env::get('MAIL_USERNAME');
         $mailPassword = Env::get('MAIL_PASSWORD');
         $mailFromAddress = Env::get('MAIL_FROM_ADDRESS', $mailUsername);
-        $mailFromName = Env::get('MAIL_FROM_NAME', Env::get('APP_NAME', 'PHVN Framework'));
+        $mailFromName = Env::get('MAIL_FROM_NAME', Env::get('APP_NAME', 'Questra'));
 
         if ($mailHost === null || $mailUsername === null || $mailPassword === null || $mailFromAddress === null) {
             return [
@@ -142,11 +145,17 @@ class Tools
     // --------------  FORMAT TIMESTAMP  ----------------//
     public function formatTimestamp($timestamp, $format = "F j, Y h:i a")
     {
-        if (!is_numeric($timestamp) || strlen($timestamp) != 10) {
-            return false; // invalid input
+        if (is_numeric($timestamp)) {
+            return date($format, (int) $timestamp);
         }
 
-        return date($format, $timestamp);
+        $time = strtotime((string) $timestamp);
+
+        if ($time === false) {
+            return false;
+        }
+
+        return date($format, $time);
     }
 
     // --------------  MASK A USERNAME  ----------------//
